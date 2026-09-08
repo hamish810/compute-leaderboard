@@ -65,35 +65,9 @@ h1 {
   padding: 1.25rem 1.25rem 1.4rem;
 }
 
-.bench {
+.bench,
+.board-wrap {
   margin-bottom: 1rem;
-}
-
-.name-field {
-  display: grid;
-  gap: 0.35rem;
-  margin-bottom: 1.1rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-input, button {
-  font: inherit;
-}
-
-input {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 16px;
-  color: var(--ink);
-  background: #100e0c;
-  border: 1px solid var(--line);
-  outline: none;
-  border-radius: 0;
-}
-
-input:focus {
-  border-color: var(--accent);
 }
 
 .meter-top {
@@ -150,6 +124,7 @@ input:focus {
 
 button {
   cursor: pointer;
+  font: inherit;
   min-height: 44px;
   padding: 0.7rem 1rem;
   color: #141210;
@@ -211,11 +186,19 @@ h2 {
   font-size: 0.86rem;
 }
 
-.board .rank {
+.board .rank,
+.board .when,
+.board .who {
   color: var(--muted);
 }
 
-.board .you .name {
+.board .who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board .best .pts {
   color: var(--good);
 }
 

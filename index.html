@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Compute Leaderboard</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="app.js" defer></script>
 </head>
 <body>
   <div class="frame">
@@ -14,16 +15,12 @@
       <p class="lede">
         Your browser factors random 12-digit integers as fast as it can.
         Score is how many numbers are fully factored in five seconds.
+        Your best is published to the public board under your MyStack name.
       </p>
     </header>
 
     <section class="bench" aria-labelledby="bench-heading">
       <h2 id="bench-heading" class="visually-hidden">Benchmark</h2>
-
-      <label class="name-field">
-        <span>Display name</span>
-        <input id="name" type="text" maxlength="24" autocomplete="nickname" placeholder="anonymous" />
-      </label>
 
       <div class="meter" aria-live="polite">
         <div class="meter-top">
@@ -42,21 +39,26 @@
 
       <div class="actions">
         <button id="run" type="button">Run benchmark</button>
-        <button id="post" type="button" disabled>Post score</button>
+        <button id="login" type="button" class="ghost" hidden>Sign in</button>
       </div>
       <p class="hint" id="hint"></p>
     </section>
 
     <section class="board-wrap" aria-labelledby="board-heading">
       <div class="board-head">
-        <h2 id="board-heading">Board</h2>
-        <button id="refresh" type="button" class="ghost">Refresh</button>
+        <h2 id="board-heading">Public board</h2>
+        <button id="refresh" type="button" class="ghost">Reload</button>
       </div>
       <p class="store-note" id="store-note"></p>
       <ol id="board" class="board"></ol>
     </section>
-  </div>
 
-  <script src="app.js"></script>
+    <section class="board-wrap" aria-labelledby="yours-heading">
+      <div class="board-head">
+        <h2 id="yours-heading">Your runs</h2>
+      </div>
+      <ol id="yours" class="board"></ol>
+    </section>
+  </div>
 </body>
 </html>

@@ -1,85 +1,70 @@
 const DURATION_MS = 5000;
-const MIN_N = 100_000_000_000; // 12-digit
+const MIN_N = 100_000_000_000;
 const MAX_N = 999_999_999_999;
-const MAX_BOARD = 25;
-const LOCAL_KEY = "compute-lb-player";
+const MAX_RUNS = 30;
+const LOCAL_KEY = "compute-lb-save";
 
 const el = {
-  name: document.getElementById("name"),
   status: document.getElementById("status"),
   clock: document.getElementById("clock"),
   bar: document.getElementById("bar-fill"),
   liveScore: document.getElementById("live-score"),
   liveOps: document.getElementById("live-ops"),
   run: document.getElementById("run"),
-  post: document.getElementById("post"),
+  login: document.getElementById("login"),
   hint: document.getElementById("hint"),
   board: document.getElementById("board"),
+  yours: document.getElementById("yours"),
   refresh: document.getElementById("refresh"),
   storeNote: document.getElementById("store-note"),
 };
 
-const hosted = typeof window.mystack?.db?.get === "function";
+const hasMystack = typeof window.mystack === "object" && window.mystack !== null;
+const hasDb = typeof window.mystack?.db?.get === "function";
+const hasRun = typeof window.mystack?.run === "function";
+const hasPublic = typeof window.mystack?.public?.list === "function";
+const hasLogin = typeof window.mystack?.auth?.login === "function";
 
 function localStore() {
   return {
     async get() {
       try {
-        return JSON.parse(localStorage.getItem("compute-lb-db") || "{}");
+        return JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}");
       } catch {
         return {};
       }
     },
     async set(obj) {
-      localStorage.setItem("compute-lb-db", JSON.stringify(obj));
-    },
-    async delete() {
-      localStorage.removeItem("compute-lb-db");
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(obj));
     },
   };
 }
 
-const db = hosted ? window.mystack.db : localStore();
+const localDb = localStore();
 
-function playerId() {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+let save = {
+  best: 0,
+  bestOps: 0,
+  bestAt: 0,
+  published: 0,
+  runs: [],
+};
 
-function loadPlayer() {
-  try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    /* ignore */
-  }
-  const player = {
-    id: playerId(),
-    name: "",
-    best: 0,
-  };
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(player));
-  return player;
-}
-
-function savePlayer(player) {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(player));
-}
-
-let player = loadPlayer();
-el.name.value = player.name;
-
-el.storeNote.textContent = hosted
-  ? "Scores live in this app’s shared MyStack store (one JSON object). Simultaneous posts can overwrite each other."
-  : "Not running on MyStack — the board is saved in this browser only.";
-
-let lastResult = null;
+let publicRows = [];
 let running = false;
+
+if (hasMystack && hasLogin) el.login.hidden = false;
+
+if (!hasMystack) {
+  el.storeNote.textContent =
+    "This page is not running on MyStack — scores stay in this browser only.";
+} else if (!hasPublic || !hasRun) {
+  el.storeNote.textContent =
+    "Public writes are unavailable here. Personal scores still save to your account.";
+} else {
+  el.storeNote.textContent =
+    "Best scores are public. MyStack attaches your profile name; the browser cannot set it.";
+}
 
 const workerSource = `
   const MIN_N = ${MIN_N};
@@ -142,6 +127,20 @@ function formatOps(n) {
   return String(n);
 }
 
+function formatWhen(at) {
+  if (!at) return "";
+  try {
+    return new Date(at).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
 function setProgress(t, solved, ops) {
   const remain = Math.max(0, DURATION_MS - t);
   const pct = Math.min(100, (t / DURATION_MS) * 100);
@@ -152,113 +151,173 @@ function setProgress(t, solved, ops) {
   el.liveOps.textContent = formatOps(ops) + " trial divisions";
 }
 
-function entriesFrom(data) {
-  const board = data && typeof data.board === "object" && !Array.isArray(data.board)
-    ? data.board
-    : {};
-  return Object.entries(board)
-    .map(([id, row]) => ({
-      id,
-      name: typeof row?.name === "string" && row.name.trim() ? row.name.trim().slice(0, 24) : "anonymous",
-      score: Number(row?.score) || 0,
-      ops: Number(row?.ops) || 0,
-      at: Number(row?.at) || 0,
-    }))
-    .filter((row) => row.score > 0)
+function rankedRuns(runs) {
+  return [...(runs || [])]
+    .filter((row) => row && Number(row.score) > 0)
     .sort((a, b) => b.score - a.score || b.ops - a.ops)
-    .slice(0, MAX_BOARD);
+    .slice(0, MAX_RUNS);
 }
 
-function renderBoard(rows) {
+function applyData(data) {
+  const obj = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  save = {
+    best: Number(obj.best) || 0,
+    bestOps: Number(obj.bestOps) || 0,
+    bestAt: Number(obj.bestAt) || 0,
+    published: Number(obj.published) || 0,
+    runs: Array.isArray(obj.runs) ? obj.runs : [],
+  };
+  renderYours();
+}
+
+function emptyBoard(message) {
+  return `<li><span class="rank">—</span><span>${message}</span><span></span></li>`;
+}
+
+function renderYours() {
+  const rows = rankedRuns(save.runs);
   if (!rows.length) {
-    el.board.innerHTML = "<li><span class=\"rank\">—</span><span>No scores yet</span><span></span></li>";
+    el.yours.innerHTML = emptyBoard("No runs yet");
     return;
   }
-  el.board.innerHTML = rows
+  el.yours.innerHTML = rows
     .map((row, i) => {
-      const you = row.id === player.id ? " you" : "";
-      const label = row.id === player.id ? `${row.name} (you)` : row.name;
-      return `<li class="${you}">
+      const isBest = row.score === save.best && row.at === save.bestAt;
+      return `<li class="${isBest ? "best" : ""}">
         <span class="rank">${i + 1}</span>
-        <span class="name">${escapeHtml(label)}</span>
+        <span class="when">${isBest ? "Best · " : ""}${formatWhen(row.at)}</span>
         <span class="pts">${row.score}</span>
       </li>`;
     })
     .join("");
 }
 
-function escapeHtml(s) {
-  return s
+function displayName(row) {
+  const name = typeof row.name === "string" ? row.name.trim() : "";
+  const username = typeof row.username === "string" ? row.username.trim() : "";
+  return name || username || "player";
+}
+
+function renderBoard() {
+  const ranked = [...publicRows]
+    .map((row) => {
+      const data = row && row.data && typeof row.data === "object" ? row.data : {};
+      return {
+        name: displayName(row),
+        score: Number(data.score) || 0,
+        ops: Number(data.ops) || 0,
+        at: Number(data.at) || 0,
+      };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || b.ops - a.ops);
+
+  if (!ranked.length) {
+    el.board.innerHTML = emptyBoard("No public scores yet");
+    return;
+  }
+
+  el.board.innerHTML = ranked
+    .map(
+      (row, i) => `<li>
+        <span class="rank">${i + 1}</span>
+        <span class="who">${escapeHtml(row.name)}</span>
+        <span class="pts">${row.score}</span>
+      </li>`
+    )
+    .join("");
+}
+
+function escapeHtml(text) {
+  return String(text)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-async function loadBoard() {
-  try {
-    const data = await db.get();
-    renderBoard(entriesFrom(data && typeof data === "object" ? data : {}));
-  } catch (err) {
-    el.hint.textContent = "Could not read the board.";
-    renderBoard([]);
+async function loadPrivate() {
+  if (hasDb) {
+    applyData(await window.mystack.db.get());
+    return;
   }
+  applyData(await localDb.get());
 }
 
-async function postScore() {
-  if (!lastResult) return;
-  player.name = el.name.value.trim().slice(0, 24);
-  savePlayer(player);
-
-  const entry = {
-    name: player.name || "anonymous",
-    score: lastResult.solved,
-    ops: lastResult.ops,
-    at: Date.now(),
-  };
-
-  // MyStack has no atomic update. This replaces the whole store with a
-  // snapshot built from the last read, so concurrent posts can drop scores.
-  let data = {};
-  try {
-    const got = await db.get();
-    if (got && typeof got === "object" && !Array.isArray(got)) data = got;
-  } catch {
-    data = {};
+async function loadPublic() {
+  if (!hasPublic) {
+    publicRows = [];
+    if (!hasMystack) {
+      el.board.innerHTML = emptyBoard("Public board needs MyStack");
+    } else {
+      renderBoard();
+    }
+    return;
   }
-
-  const board =
-    data.board && typeof data.board === "object" && !Array.isArray(data.board)
-      ? { ...data.board }
-      : {};
-  board[player.id] = entry;
-  const trimmed = Object.fromEntries(
-    entriesFrom({ board }).map((row) => [
-      row.id,
-      { name: row.name, score: row.score, ops: row.ops, at: row.at },
-    ])
-  );
-
-  await db.set({ board: trimmed });
-  renderBoard(entriesFrom({ board: trimmed }));
-  el.hint.textContent = "Posted.";
-  el.post.disabled = true;
+  const result = await window.mystack.public.list({ order: "score", limit: 50 });
+  publicRows = Array.isArray(result?.rows) ? result.rows : [];
+  renderBoard();
 }
 
-function finishRun(solved, ops) {
+async function loadAll() {
+  await loadPrivate();
+  await loadPublic();
+}
+
+function localSubmit(solved, ops, at) {
+  save.runs = rankedRuns([...save.runs, { score: solved, ops, at }]);
+  const top = save.runs[0];
+  if (top) {
+    save.best = top.score;
+    save.bestOps = top.ops;
+    save.bestAt = top.at;
+  }
+  renderYours();
+  return localDb.set({
+    best: save.best,
+    bestOps: save.bestOps,
+    bestAt: save.bestAt,
+    published: save.published,
+    runs: save.runs,
+  });
+}
+
+async function finishRun(solved, ops) {
   running = false;
-  lastResult = { solved, ops };
   setProgress(DURATION_MS, solved, ops);
   el.status.textContent = "Done";
   el.run.disabled = false;
-  el.post.disabled = false;
 
-  if (solved > player.best) {
-    player.best = solved;
-    savePlayer(player);
-    el.hint.textContent = "Personal best. Post it to the board.";
-  } else {
-    el.hint.textContent = `Best on this device: ${player.best}.`;
+  const at = Date.now();
+  const improvedLocal = solved > save.best;
+
+  try {
+    if (hasRun) {
+      const result = await window.mystack.run({
+        action: "submit",
+        score: solved,
+        ops,
+      });
+      if (!result || result.ok === false) {
+        throw new Error(result?.error || "submit failed");
+      }
+      if (result.data) applyData(result.data);
+      else await loadPrivate();
+      await loadPublic();
+      el.hint.textContent = result.improved
+        ? "New public best — published to the board."
+        : `Saved. Personal best: ${save.best}.`;
+      return;
+    }
+
+    await localSubmit(solved, ops, at);
+    el.hint.textContent = improvedLocal
+      ? "Personal best — saved in this browser."
+      : `Saved locally. Best: ${save.best}.`;
+  } catch {
+    el.hint.textContent = hasMystack
+      ? "Could not save. Sign in, then try again."
+      : "Could not save this run.";
   }
 }
 
@@ -314,9 +373,7 @@ function runOnMainThread() {
 function runBenchmark() {
   if (running) return;
   running = true;
-  lastResult = null;
   el.run.disabled = true;
-  el.post.disabled = true;
   el.status.textContent = "Running";
   el.hint.textContent = "";
   setProgress(0, 0, 0);
@@ -349,21 +406,27 @@ function runBenchmark() {
   }
 }
 
-el.name.addEventListener("change", () => {
-  player.name = el.name.value.trim().slice(0, 24);
-  savePlayer(player);
-});
-
 el.run.addEventListener("click", runBenchmark);
-el.post.addEventListener("click", () => {
-  el.post.disabled = true;
-  postScore().catch(() => {
-    el.hint.textContent = "Could not post. Try again.";
-    el.post.disabled = false;
+el.refresh.addEventListener("click", () => {
+  loadAll().catch(() => {
+    el.hint.textContent = "Could not reload the board.";
   });
 });
-el.refresh.addEventListener("click", () => {
-  loadBoard();
+el.login.addEventListener("click", async () => {
+  if (!hasLogin) return;
+  try {
+    await window.mystack.auth.login();
+    await loadAll();
+  } catch {
+    el.hint.textContent = "Sign-in did not complete.";
+  }
 });
 
-loadBoard();
+renderYours();
+renderBoard();
+
+loadAll().catch(() => {
+  el.hint.textContent = hasMystack
+    ? "Sign in with MyStack to load and save scores."
+    : "Could not load saved scores.";
+});
