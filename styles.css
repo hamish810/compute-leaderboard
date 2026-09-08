@@ -1,11 +1,13 @@
 :root {
-  --bg: #141210;
-  --paper: #1c1916;
-  --ink: #ece6db;
-  --muted: #9a9184;
-  --line: #3a342c;
-  --accent: #e6a23c;
-  --good: #c3d9a3;
+  --bg: #ffffff;
+  --paper: #ffffff;
+  --ink: #111111;
+  --muted: #444444;
+  --line: #111111;
+  --accent: #2563eb;
+  --hot: #e11d48;
+  --good: #16a34a;
+  --warn: #ea580c;
 }
 
 * {
@@ -17,7 +19,9 @@ html, body {
   min-height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  font-family: "Arial Black", "Arial Bold", Impact, Haettenschweiler, "Franklin Gothic Bold", sans-serif;
+  font-weight: 800;
+  font-synthesis: none;
 }
 
 body {
@@ -34,24 +38,24 @@ body {
 
 .kicker {
   margin: 0 0 0.4rem;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--hot);
 }
 
 h1 {
   margin: 0 0 0.75rem;
-  font-size: clamp(2rem, 6vw, 3.1rem);
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+  font-size: clamp(2.1rem, 7vw, 3.4rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+  color: var(--ink);
 }
 
 .lede, .hint, .store-note, .ops {
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .lede {
@@ -61,7 +65,7 @@ h1 {
 
 .bench, .board-wrap {
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: 3px solid var(--line);
   padding: 1.25rem 1.25rem 1.4rem;
 }
 
@@ -73,15 +77,15 @@ h1 {
 .meter-top {
   display: flex;
   justify-content: space-between;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.8rem;
-  color: var(--muted);
+  font-size: 0.85rem;
+  color: var(--warn);
 }
 
 .bar {
-  height: 4px;
+  height: 10px;
   margin: 0.7rem 0 1.1rem;
-  background: #100e0c;
+  background: #ececec;
+  border: 3px solid var(--line);
 }
 
 .bar i {
@@ -100,20 +104,21 @@ h1 {
 }
 
 .score-readout span {
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: clamp(2.4rem, 8vw, 3.6rem);
+  font-size: clamp(2.6rem, 9vw, 4rem);
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.05em;
+  font-weight: 900;
+  color: var(--accent);
 }
 
 .score-readout small,
 .ops {
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
 }
 
 .ops {
   margin: 0.4rem 0 1.2rem;
+  color: var(--hot);
 }
 
 .actions {
@@ -125,11 +130,12 @@ h1 {
 button {
   cursor: pointer;
   font: inherit;
+  font-weight: 800;
   min-height: 44px;
   padding: 0.7rem 1rem;
-  color: #141210;
+  color: #ffffff;
   background: var(--accent);
-  border: 0;
+  border: 3px solid var(--line);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -139,15 +145,16 @@ button:disabled {
 }
 
 button.ghost {
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid var(--line);
+  color: var(--hot);
+  background: #ffffff;
+  border: 3px solid var(--hot);
 }
 
 .hint {
   min-height: 1.3em;
   margin: 0.85rem 0 0;
   font-size: 0.9rem;
+  color: var(--good);
 }
 
 .board-head {
@@ -160,8 +167,9 @@ button.ghost {
 
 h2 {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 500;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--accent);
 }
 
 .store-note {
@@ -181,12 +189,14 @@ h2 {
   gap: 0.75rem;
   align-items: baseline;
   padding: 0.55rem 0;
-  border-top: 1px solid var(--line);
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.86rem;
+  border-top: 3px solid var(--line);
+  font-size: 0.92rem;
 }
 
-.board .rank,
+.board .rank {
+  color: var(--warn);
+}
+
 .board .when,
 .board .who {
   color: var(--muted);
@@ -204,6 +214,8 @@ h2 {
 
 .board .pts {
   font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  color: var(--accent);
 }
 
 @media (max-width: 520px) {
@@ -216,7 +228,7 @@ h2 {
   }
 
   .board li {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
   }
 }
 
