@@ -53,7 +53,9 @@ let save = {
 let publicRows = [];
 let running = false;
 
-if (hasMystack && hasLogin) el.login.hidden = false;
+function showSignIn(show) {
+  el.login.hidden = !(hasLogin && show);
+}
 
 if (!hasMystack) {
   el.storeNote.textContent =
@@ -237,11 +239,17 @@ function escapeHtml(text) {
 }
 
 async function loadPrivate() {
-  if (hasDb) {
-    applyData(await window.mystack.db.get());
+  if (!hasDb) {
+    applyData(await localDb.get());
     return;
   }
-  applyData(await localDb.get());
+  try {
+    applyData(await window.mystack.db.get());
+    showSignIn(false);
+  } catch (err) {
+    if (hasLogin) showSignIn(true);
+    throw err;
+  }
 }
 
 async function loadPublic() {
@@ -301,6 +309,7 @@ async function finishRun(solved, ops) {
       if (!result || result.ok === false) {
         throw new Error(result?.error || "submit failed");
       }
+      showSignIn(false);
       if (result.data) applyData(result.data);
       else await loadPrivate();
       await loadPublic();
@@ -418,6 +427,7 @@ el.login.addEventListener("click", async () => {
     await window.mystack.auth.login();
     await loadAll();
   } catch {
+    showSignIn(true);
     el.hint.textContent = "Sign-in did not complete.";
   }
 });
@@ -426,7 +436,11 @@ renderYours();
 renderBoard();
 
 loadAll().catch(() => {
+  if (!el.login.hidden) {
+    el.hint.textContent = "Sign in with MyStack to load and save scores.";
+    return;
+  }
   el.hint.textContent = hasMystack
-    ? "Sign in with MyStack to load and save scores."
+    ? "Could not load the public board."
     : "Could not load saved scores.";
 });
