@@ -6,6 +6,7 @@ const LOCAL_KEY = "compute-lb-save";
 
 const el = {
   who: document.getElementById("who"),
+  account: document.getElementById("account"),
   status: document.getElementById("status"),
   clock: document.getElementById("clock"),
   bar: document.getElementById("bar-fill"),
@@ -73,6 +74,7 @@ function renderAccount(signedIn, name) {
     el.who.hidden = true;
     el.who.textContent = "";
   }
+  el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
 }
 
 async function refreshSession() {
@@ -80,10 +82,15 @@ async function refreshSession() {
     renderAccount(false);
     return false;
   }
-  const result = await window.mystack.auth.session();
-  const signedIn = !!(result && result.signedIn);
-  renderAccount(signedIn, accountName(result));
-  return signedIn;
+  try {
+    const result = await window.mystack.auth.session();
+    const signedIn = !!(result && result.signedIn);
+    renderAccount(signedIn, accountName(result));
+    return signedIn;
+  } catch {
+    renderAccount(false);
+    return false;
+  }
 }
 
 if (!hasMystack) {
