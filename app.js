@@ -62,6 +62,7 @@ let save = {
 
 let publicRows = [];
 let running = false;
+let accountSignedIn = false;
 
 function accountName(result) {
   const name = typeof result?.name === "string" ? result.name.trim() : "";
@@ -71,6 +72,7 @@ function accountName(result) {
 
 function renderAccount(signedIn, name) {
   const a = api();
+  accountSignedIn = !!signedIn;
   el.login.hidden = !(a.login && !signedIn);
   el.logout.hidden = !(a.logout && signedIn);
   if (signedIn) {
@@ -95,19 +97,14 @@ async function waitForMystack() {
 async function refreshSession() {
   await waitForMystack();
   const a = api();
-  if (!a.session) {
-    renderAccount(false);
-    return false;
-  }
-  renderAccount(false);
+  if (!a.session) return accountSignedIn;
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
     renderAccount(signedIn, accountName(result));
     return signedIn;
   } catch {
-    renderAccount(false);
-    return false;
+    return accountSignedIn;
   }
 }
 
@@ -365,7 +362,6 @@ async function finishRun(solved, ops) {
       if (!result || result.ok === false) {
         throw new Error(result?.error || "submit failed");
       }
-      await refreshSession();
       if (result.data) applyData(result.data);
       else await loadPrivate();
       await loadPublic();
@@ -380,7 +376,6 @@ async function finishRun(solved, ops) {
       ? "Personal best — saved in this browser."
       : `Saved locally. Best: ${save.best}.`;
   } catch {
-    await refreshSession();
     el.hint.textContent = "Could not save this run.";
   }
 }
