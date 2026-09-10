@@ -40,21 +40,15 @@ function pickName(...values) {
 }
 
 function profileName(ctx) {
-  const user = asObject(ctx && ctx.user);
-  const profile = asObject(user.profile);
-  return pickName(
-    ctx && ctx.name,
-    ctx && ctx.displayName,
-    user.name,
-    user.displayName,
-    user.display_name,
-    user.fullName,
-    user.username,
-    profile.name,
-    profile.displayName,
-    profile.username
-  );
+  try {
+    const user = asObject(ctx && ctx.user);
+    return pickName(user.name, user.username);
+  } catch {
+    return "";
+  }
 }
+
+function isBetterPublic(next, published) {
   const current = Math.floor(Number(published)) || 0;
   return next.score > current;
 }

@@ -383,7 +383,6 @@ async function finishRun(solved, ops) {
       if (result.data) applyData(result.data);
       else await loadPrivate();
       await loadPublic();
-      if (result.name) renderAccount(true, accountName(result));
       el.hint.textContent = result.improved
         ? "New public best — published to the board."
         : `Saved. Personal best: ${save.best}.`;
