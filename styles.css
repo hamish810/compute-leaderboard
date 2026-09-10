@@ -36,6 +36,29 @@ body {
   margin: 0 auto;
 }
 
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
+.who-label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.account button {
+  min-height: 40px;
+  padding: 0.45rem 0.85rem;
+}
+
 .kicker {
   margin: 0 0 0.4rem;
   font-size: 0.78rem;
