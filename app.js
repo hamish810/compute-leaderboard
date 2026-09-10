@@ -97,27 +97,39 @@ function writeAccountCache(signedIn, name) {
   }
 }
 
-function renderAccount(signedIn, name) {
+function paintAccount(signedIn, name, force) {
+  if (!signedIn && accountSignedIn && !force) return;
   const a = api();
+  const account = document.getElementById("account");
+  const who = document.getElementById("who");
+  const login = document.getElementById("login");
+  const logout = document.getElementById("logout");
+  if (!account || !who || !login || !logout) return;
+
   const label = signedIn ? name || "Signed in" : "";
   accountSignedIn = !!signedIn;
   writeAccountCache(signedIn, label);
-  el.login.hidden = !(a.login && !signedIn);
-  el.logout.hidden = !(a.logout && signedIn);
+  account.setAttribute("data-state", signedIn ? "in" : "out");
+  login.hidden = !(a.login && !signedIn);
+  logout.hidden = !(a.logout && signedIn);
   if (signedIn) {
-    el.who.hidden = false;
-    el.who.textContent = label;
+    who.hidden = false;
+    who.textContent = label;
   } else {
-    el.who.hidden = true;
-    el.who.textContent = "";
+    who.hidden = true;
+    who.textContent = "";
   }
-  el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
+  account.hidden = login.hidden && logout.hidden && who.hidden;
+}
+
+function renderAccount(signedIn, name) {
+  paintAccount(signedIn, name, false);
 }
 
 function restoreAccount() {
   const cached = readAccountCache();
   if (cached && cached.signedIn) {
-    renderAccount(true, cached.name);
+    paintAccount(true, cached.name, true);
   }
 }
 
@@ -137,8 +149,12 @@ async function refreshSession() {
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
-    renderAccount(signedIn, accountName(result));
-    return signedIn;
+    if (signedIn) {
+      paintAccount(true, accountName(result), true);
+      return true;
+    }
+    if (!accountSignedIn) paintAccount(false, "", true);
+    return accountSignedIn;
   } catch {
     return accountSignedIn;
   }
@@ -515,7 +531,7 @@ el.logout.addEventListener("click", async () => {
   try {
     await window.mystack.auth.logout();
     applyData({});
-    renderAccount(false);
+    paintAccount(false, "", true);
     await loadAll();
   } catch {
     el.hint.textContent = "Sign-out did not complete.";

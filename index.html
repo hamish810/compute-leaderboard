@@ -12,11 +12,29 @@
     <header>
       <p class="kicker">Integer factoring · 5.00s window</p>
       <h1>Compute Leaderboard</h1>
-      <div id="account" class="account" aria-label="Account" hidden>
+      <div id="account" class="account" aria-label="Account" data-state="none" hidden>
         <span id="who" class="who-label" hidden></span>
         <button id="login" type="button" hidden>Sign in</button>
         <button id="logout" type="button" class="ghost" hidden>Sign out</button>
       </div>
+      <script>
+        (function () {
+          try {
+            var s = JSON.parse(sessionStorage.getItem("compute-lb-account") || "null");
+            if (!s || !s.signedIn) return;
+            var acc = document.getElementById("account");
+            var who = document.getElementById("who");
+            var login = document.getElementById("login");
+            var out = document.getElementById("logout");
+            acc.hidden = false;
+            acc.setAttribute("data-state", "in");
+            who.hidden = false;
+            who.textContent = s.name || "Signed in";
+            login.hidden = true;
+            out.hidden = false;
+          } catch (e) {}
+        })();
+      </script>
       <p class="lede">
         Your browser factors random 12-digit integers as fast as it can.
         Score is how many numbers are fully factored in five seconds.
