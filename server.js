@@ -32,7 +32,29 @@ function snapshotFrom(priv, extraRun) {
   };
 }
 
-function isBetterPublic(next, published) {
+function pickName(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
+  }
+  return "";
+}
+
+function profileName(ctx) {
+  const user = asObject(ctx && ctx.user);
+  const profile = asObject(user.profile);
+  return pickName(
+    ctx && ctx.name,
+    ctx && ctx.displayName,
+    user.name,
+    user.displayName,
+    user.display_name,
+    user.fullName,
+    user.username,
+    profile.name,
+    profile.displayName,
+    profile.username
+  );
+}
   const current = Math.floor(Number(published)) || 0;
   return next.score > current;
 }
@@ -40,6 +62,10 @@ function isBetterPublic(next, published) {
 export default {
   async run(input, ctx) {
     const action = input && typeof input.action === "string" ? input.action : "";
+
+    if (action === "who") {
+      return { ok: true, name: profileName(ctx) };
+    }
 
     if (action === "submit") {
       const score = Math.floor(Number(input.score));
@@ -66,7 +92,7 @@ export default {
       }
 
       await ctx.db.set(save);
-      return { ok: true, improved, data: save };
+      return { ok: true, improved, data: save, name: profileName(ctx) };
     }
 
     return { ok: false, error: "unknown action" };

@@ -66,21 +66,33 @@ let running = false;
 function accountName(result) {
   const name = typeof result?.name === "string" ? result.name.trim() : "";
   const username = typeof result?.username === "string" ? result.username.trim() : "";
-  return name || username || "Signed in";
+  return name || username;
 }
 
 function renderAccount(signedIn, name) {
   const a = api();
+  const label = typeof name === "string" ? name.trim() : "";
   el.login.hidden = !(a.login && !signedIn);
   el.logout.hidden = !(a.logout && signedIn);
-  if (signedIn) {
+  if (signedIn && label) {
     el.who.hidden = false;
-    el.who.textContent = name || "Signed in";
+    el.who.textContent = label;
   } else {
     el.who.hidden = true;
     el.who.textContent = "";
   }
   el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
+}
+
+async function loadProfileName() {
+  if (!api().run) return "";
+  try {
+    const result = await window.mystack.run({ action: "who" });
+    if (!result || result.ok === false) return "";
+    return accountName(result);
+  } catch {
+    return "";
+  }
 }
 
 async function waitForMystack() {
@@ -103,7 +115,9 @@ async function refreshSession() {
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
-    renderAccount(signedIn, accountName(result));
+    let name = accountName(result);
+    if (signedIn && !name) name = await loadProfileName();
+    renderAccount(signedIn, name);
     return signedIn;
   } catch {
     renderAccount(false);
@@ -369,6 +383,7 @@ async function finishRun(solved, ops) {
       if (result.data) applyData(result.data);
       else await loadPrivate();
       await loadPublic();
+      if (result.name) renderAccount(true, accountName(result));
       el.hint.textContent = result.improved
         ? "New public best — published to the board."
         : `Saved. Personal best: ${save.best}.`;
