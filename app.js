@@ -62,8 +62,6 @@ let save = {
 
 let publicRows = [];
 let running = false;
-let accountSignedIn = false;
-const ACCOUNT_KEY = "compute-lb-account";
 
 function accountName(result) {
   const name = typeof result?.name === "string" ? result.name.trim() : "";
@@ -71,66 +69,18 @@ function accountName(result) {
   return name || username || "Signed in";
 }
 
-function readAccountCache() {
-  try {
-    const raw = sessionStorage.getItem(ACCOUNT_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") return null;
-    return obj;
-  } catch {
-    return null;
-  }
-}
-
-function writeAccountCache(signedIn, name) {
-  try {
-    sessionStorage.setItem(
-      ACCOUNT_KEY,
-      JSON.stringify({
-        signedIn: !!signedIn,
-        name: signedIn ? name || "Signed in" : "",
-      })
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
-
-function paintAccount(signedIn, name, force) {
-  if (!signedIn && accountSignedIn && !force) return;
-  const a = api();
-  const account = document.getElementById("account");
-  const who = document.getElementById("who");
-  const login = document.getElementById("login");
-  const logout = document.getElementById("logout");
-  if (!account || !who || !login || !logout) return;
-
-  const label = signedIn ? name || "Signed in" : "";
-  accountSignedIn = !!signedIn;
-  writeAccountCache(signedIn, label);
-  account.setAttribute("data-state", signedIn ? "in" : "out");
-  login.hidden = !(a.login && !signedIn);
-  logout.hidden = !(a.logout && signedIn);
-  if (signedIn) {
-    who.hidden = false;
-    who.textContent = label;
-  } else {
-    who.hidden = true;
-    who.textContent = "";
-  }
-  account.hidden = login.hidden && logout.hidden && who.hidden;
-}
-
 function renderAccount(signedIn, name) {
-  paintAccount(signedIn, name, false);
-}
-
-function restoreAccount() {
-  const cached = readAccountCache();
-  if (cached && cached.signedIn) {
-    paintAccount(true, cached.name, true);
+  const a = api();
+  el.login.hidden = !(a.login && !signedIn);
+  el.logout.hidden = !(a.logout && signedIn);
+  if (signedIn) {
+    el.who.hidden = false;
+    el.who.textContent = name || "Signed in";
+  } else {
+    el.who.hidden = true;
+    el.who.textContent = "";
   }
+  el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
 }
 
 async function waitForMystack() {
@@ -145,18 +95,19 @@ async function waitForMystack() {
 async function refreshSession() {
   await waitForMystack();
   const a = api();
-  if (!a.session) return accountSignedIn;
+  if (!a.session) {
+    renderAccount(false);
+    return false;
+  }
+  renderAccount(false);
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
-    if (signedIn) {
-      paintAccount(true, accountName(result), true);
-      return true;
-    }
-    if (!accountSignedIn) paintAccount(false, "", true);
-    return accountSignedIn;
+    renderAccount(signedIn, accountName(result));
+    return signedIn;
   } catch {
-    return accountSignedIn;
+    renderAccount(false);
+    return false;
   }
 }
 
@@ -414,6 +365,7 @@ async function finishRun(solved, ops) {
       if (!result || result.ok === false) {
         throw new Error(result?.error || "submit failed");
       }
+      await refreshSession();
       if (result.data) applyData(result.data);
       else await loadPrivate();
       await loadPublic();
@@ -428,6 +380,7 @@ async function finishRun(solved, ops) {
       ? "Personal best — saved in this browser."
       : `Saved locally. Best: ${save.best}.`;
   } catch {
+    await refreshSession();
     el.hint.textContent = "Could not save this run.";
   }
 }
@@ -531,14 +484,12 @@ el.logout.addEventListener("click", async () => {
   try {
     await window.mystack.auth.logout();
     applyData({});
-    paintAccount(false, "", true);
     await loadAll();
   } catch {
     el.hint.textContent = "Sign-out did not complete.";
   }
 });
 
-restoreAccount();
 renderYours();
 renderBoard();
 

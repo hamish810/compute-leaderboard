@@ -40,21 +40,12 @@ body {
   display: none !important;
 }
 
-.account:not([hidden]) {
+.account {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin: 0 0 1rem;
-}
-
-.account[data-state="in"] #login {
-  display: none !important;
-}
-
-.account[data-state="out"] .who-label,
-.account[data-state="out"] #logout {
-  display: none !important;
 }
 
 .who-label {
