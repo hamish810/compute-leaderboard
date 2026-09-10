@@ -24,6 +24,7 @@ const hasDb = typeof window.mystack?.db?.get === "function";
 const hasRun = typeof window.mystack?.run === "function";
 const hasPublic = typeof window.mystack?.public?.list === "function";
 const hasLogin = typeof window.mystack?.auth?.login === "function";
+const hasSession = typeof window.mystack?.auth?.session === "function";
 
 function localStore() {
   return {
@@ -55,6 +56,17 @@ let running = false;
 
 function showSignIn(show) {
   el.login.hidden = !(hasLogin && show);
+}
+
+async function refreshSession() {
+  if (!hasSession) {
+    showSignIn(false);
+    return hasDb;
+  }
+  const result = await window.mystack.auth.session();
+  const signedIn = !!(result && result.signedIn);
+  showSignIn(!signedIn);
+  return signedIn;
 }
 
 if (!hasMystack) {
@@ -243,13 +255,10 @@ async function loadPrivate() {
     applyData(await localDb.get());
     return;
   }
-  try {
-    applyData(await window.mystack.db.get());
-    showSignIn(false);
-  } catch (err) {
-    if (hasLogin) showSignIn(true);
-    throw err;
-  }
+  const signedIn = await refreshSession();
+  if (!signedIn) return;
+  applyData(await window.mystack.db.get());
+  showSignIn(false);
 }
 
 async function loadPublic() {
@@ -268,8 +277,8 @@ async function loadPublic() {
 }
 
 async function loadAll() {
-  await loadPrivate();
   await loadPublic();
+  await loadPrivate();
 }
 
 function localSubmit(solved, ops, at) {
@@ -324,6 +333,13 @@ async function finishRun(solved, ops) {
       ? "Personal best — saved in this browser."
       : `Saved locally. Best: ${save.best}.`;
   } catch {
+    if (hasSession) {
+      const signedIn = await refreshSession();
+      el.hint.textContent = signedIn
+        ? "Could not save this run."
+        : "Sign in to publish and save scores.";
+      return;
+    }
     el.hint.textContent = hasMystack
       ? "Could not save. Sign in, then try again."
       : "Could not save this run.";
@@ -427,7 +443,7 @@ el.login.addEventListener("click", async () => {
     await window.mystack.auth.login();
     await loadAll();
   } catch {
-    showSignIn(true);
+    await refreshSession();
     el.hint.textContent = "Sign-in did not complete.";
   }
 });
@@ -437,7 +453,7 @@ renderBoard();
 
 loadAll().catch(() => {
   if (!el.login.hidden) {
-    el.hint.textContent = "Sign in with MyStack to load and save scores.";
+    el.hint.textContent = "Sign in to save and publish your scores.";
     return;
   }
   el.hint.textContent = hasMystack
