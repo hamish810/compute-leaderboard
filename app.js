@@ -22,13 +22,18 @@ const el = {
   storeNote: document.getElementById("store-note"),
 };
 
-const hasMystack = typeof window.mystack === "object" && window.mystack !== null;
-const hasDb = typeof window.mystack?.db?.get === "function";
-const hasRun = typeof window.mystack?.run === "function";
-const hasPublic = typeof window.mystack?.public?.list === "function";
-const hasLogin = typeof window.mystack?.auth?.login === "function";
-const hasLogout = typeof window.mystack?.auth?.logout === "function";
-const hasSession = typeof window.mystack?.auth?.session === "function";
+function api() {
+  const m = window.mystack;
+  return {
+    mystack: !!(m && typeof m === "object"),
+    db: typeof m?.db?.get === "function",
+    run: typeof m?.run === "function",
+    pub: typeof m?.public?.list === "function",
+    login: typeof m?.auth?.login === "function",
+    logout: typeof m?.auth?.logout === "function",
+    session: typeof m?.auth?.session === "function",
+  };
+}
 
 function localStore() {
   return {
@@ -65,8 +70,9 @@ function accountName(result) {
 }
 
 function renderAccount(signedIn, name) {
-  el.login.hidden = !(hasLogin && !signedIn);
-  el.logout.hidden = !(hasLogout && signedIn);
+  const a = api();
+  el.login.hidden = !(a.login && !signedIn);
+  el.logout.hidden = !(a.logout && signedIn);
   if (signedIn) {
     el.who.hidden = false;
     el.who.textContent = name || "Signed in";
@@ -77,11 +83,23 @@ function renderAccount(signedIn, name) {
   el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
 }
 
+async function waitForMystack() {
+  if (api().mystack) return;
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    if (api().mystack) return;
+  }
+}
+
 async function refreshSession() {
-  if (!hasSession) {
+  await waitForMystack();
+  const a = api();
+  if (!a.session) {
     renderAccount(false);
     return false;
   }
+  renderAccount(false);
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
@@ -93,16 +111,21 @@ async function refreshSession() {
   }
 }
 
-if (!hasMystack) {
-  el.storeNote.textContent =
-    "This page is not running on MyStack — scores stay in this browser only.";
-} else if (!hasPublic || !hasRun) {
-  el.storeNote.textContent =
-    "Public writes are unavailable here. Personal scores still save on this device cookie.";
-} else {
-  el.storeNote.textContent =
-    "Anyone can run and save. Sign in to publish under your MyStack name; otherwise the board shows Anonymous.";
+function setStoreNote() {
+  const a = api();
+  if (!a.mystack) {
+    el.storeNote.textContent =
+      "This page is not running on MyStack — scores stay in this browser only.";
+  } else if (!a.pub || !a.run) {
+    el.storeNote.textContent =
+      "Public writes are unavailable here. Personal scores still save on this device cookie.";
+  } else {
+    el.storeNote.textContent =
+      "Anyone can run and save. Sign in to publish under your MyStack name; otherwise the board shows Anonymous.";
+  }
 }
+
+setStoreNote();
 
 const workerSource = `
   const MIN_N = ${MIN_N};
@@ -275,7 +298,7 @@ function escapeHtml(text) {
 }
 
 async function loadPrivate() {
-  if (!hasDb) {
+  if (!api().db) {
     applyData(await localDb.get());
     return;
   }
@@ -283,9 +306,9 @@ async function loadPrivate() {
 }
 
 async function loadPublic() {
-  if (!hasPublic) {
+  if (!api().pub) {
     publicRows = [];
-    if (!hasMystack) {
+    if (!api().mystack) {
       el.board.innerHTML = emptyBoard("Public board needs MyStack");
     } else {
       renderBoard();
@@ -298,6 +321,8 @@ async function loadPublic() {
 }
 
 async function loadAll() {
+  await waitForMystack();
+  setStoreNote();
   await refreshSession();
   await loadPublic();
   await loadPrivate();
@@ -331,7 +356,7 @@ async function finishRun(solved, ops) {
   const improvedLocal = solved > save.best;
 
   try {
-    if (hasRun) {
+    if (api().run) {
       const result = await window.mystack.run({
         action: "submit",
         score: solved,
@@ -356,9 +381,7 @@ async function finishRun(solved, ops) {
       : `Saved locally. Best: ${save.best}.`;
   } catch {
     await refreshSession();
-    el.hint.textContent = hasMystack
-      ? "Could not save this run."
-      : "Could not save this run.";
+    el.hint.textContent = "Could not save this run.";
   }
 }
 
@@ -454,10 +477,10 @@ el.refresh.addEventListener("click", () => {
   });
 });
 el.login.addEventListener("click", () => {
-  if (hasLogin) window.mystack.auth.login();
+  if (api().login) window.mystack.auth.login();
 });
 el.logout.addEventListener("click", async () => {
-  if (!hasLogout) return;
+  if (!api().logout) return;
   try {
     await window.mystack.auth.logout();
     applyData({});
@@ -471,7 +494,7 @@ renderYours();
 renderBoard();
 
 loadAll().catch(() => {
-  el.hint.textContent = hasMystack
+  el.hint.textContent = api().mystack
     ? "Could not load scores."
     : "Could not load saved scores.";
 });
