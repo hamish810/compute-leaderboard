@@ -32,22 +32,6 @@ function snapshotFrom(priv, extraRun) {
   };
 }
 
-function pickName(...values) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
-  }
-  return "";
-}
-
-function profileName(ctx) {
-  try {
-    const user = asObject(ctx && ctx.user);
-    return pickName(user.name, user.username);
-  } catch {
-    return "";
-  }
-}
-
 function isBetterPublic(next, published) {
   const current = Math.floor(Number(published)) || 0;
   return next.score > current;
@@ -56,10 +40,6 @@ function isBetterPublic(next, published) {
 export default {
   async run(input, ctx) {
     const action = input && typeof input.action === "string" ? input.action : "";
-
-    if (action === "who") {
-      return { ok: true, name: profileName(ctx) };
-    }
 
     if (action === "submit") {
       const score = Math.floor(Number(input.score));
@@ -86,7 +66,7 @@ export default {
       }
 
       await ctx.db.set(save);
-      return { ok: true, improved, data: save, name: profileName(ctx) };
+      return { ok: true, improved, data: save };
     }
 
     return { ok: false, error: "unknown action" };

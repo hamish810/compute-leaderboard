@@ -66,33 +66,21 @@ let running = false;
 function accountName(result) {
   const name = typeof result?.name === "string" ? result.name.trim() : "";
   const username = typeof result?.username === "string" ? result.username.trim() : "";
-  return name || username;
+  return name || username || "Signed in";
 }
 
 function renderAccount(signedIn, name) {
   const a = api();
-  const label = typeof name === "string" ? name.trim() : "";
   el.login.hidden = !(a.login && !signedIn);
   el.logout.hidden = !(a.logout && signedIn);
-  if (signedIn && label) {
+  if (signedIn) {
     el.who.hidden = false;
-    el.who.textContent = label;
+    el.who.textContent = name || "Signed in";
   } else {
     el.who.hidden = true;
     el.who.textContent = "";
   }
   el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
-}
-
-async function loadProfileName() {
-  if (!api().run) return "";
-  try {
-    const result = await window.mystack.run({ action: "who" });
-    if (!result || result.ok === false) return "";
-    return accountName(result);
-  } catch {
-    return "";
-  }
 }
 
 async function waitForMystack() {
@@ -115,9 +103,7 @@ async function refreshSession() {
   try {
     const result = await window.mystack.auth.session();
     const signedIn = !!(result && result.signedIn);
-    let name = accountName(result);
-    if (signedIn && !name) name = await loadProfileName();
-    renderAccount(signedIn, name);
+    renderAccount(signedIn, accountName(result));
     return signedIn;
   } catch {
     renderAccount(false);
