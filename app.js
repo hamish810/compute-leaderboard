@@ -63,6 +63,7 @@ let save = {
 let publicRows = [];
 let running = false;
 let accountSignedIn = false;
+const ACCOUNT_KEY = "compute-lb-account";
 
 function accountName(result) {
   const name = typeof result?.name === "string" ? result.name.trim() : "";
@@ -70,19 +71,54 @@ function accountName(result) {
   return name || username || "Signed in";
 }
 
+function readAccountCache() {
+  try {
+    const raw = sessionStorage.getItem(ACCOUNT_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return null;
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
+function writeAccountCache(signedIn, name) {
+  try {
+    sessionStorage.setItem(
+      ACCOUNT_KEY,
+      JSON.stringify({
+        signedIn: !!signedIn,
+        name: signedIn ? name || "Signed in" : "",
+      })
+    );
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 function renderAccount(signedIn, name) {
   const a = api();
+  const label = signedIn ? name || "Signed in" : "";
   accountSignedIn = !!signedIn;
+  writeAccountCache(signedIn, label);
   el.login.hidden = !(a.login && !signedIn);
   el.logout.hidden = !(a.logout && signedIn);
   if (signedIn) {
     el.who.hidden = false;
-    el.who.textContent = name || "Signed in";
+    el.who.textContent = label;
   } else {
     el.who.hidden = true;
     el.who.textContent = "";
   }
   el.account.hidden = el.login.hidden && el.logout.hidden && el.who.hidden;
+}
+
+function restoreAccount() {
+  const cached = readAccountCache();
+  if (cached && cached.signedIn) {
+    renderAccount(true, cached.name);
+  }
 }
 
 async function waitForMystack() {
@@ -479,12 +515,14 @@ el.logout.addEventListener("click", async () => {
   try {
     await window.mystack.auth.logout();
     applyData({});
+    renderAccount(false);
     await loadAll();
   } catch {
     el.hint.textContent = "Sign-out did not complete.";
   }
 });
 
+restoreAccount();
 renderYours();
 renderBoard();
 
